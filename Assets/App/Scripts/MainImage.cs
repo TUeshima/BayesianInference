@@ -17,23 +17,24 @@ public class MainImage : MonoBehaviour {
     Mat m_Mat;
     Texture2D m_Texture;
     Bayesian.Gaussian m_ProbabilityFunc;
-    unsafe void DrawGaussian(Bayesian.Gaussian g)
+    Bayesian.Gaussian m_ProbabilityAnother;
+
+    unsafe void DrawGaussian(Bayesian.Gaussian g, Color color)
     {
         float max_y = 0f;
         for (int x = 0; x < m_SizeImage.x; ++x)
         {
-            float y = Bayesian.GetYGaussian(m_ProbabilityFunc.m_Mu, m_ProbabilityFunc.m_Sigma, x);
+            float y = Bayesian.GetYGaussian(g.m_Mu, g.m_Sigma, x);
             if (y > max_y) max_y = y;
         }
 
-        Imgproc.rectangle(m_Mat, new Point(0, 0), new Point(m_SizeImage.x, m_SizeImage.y), new Scalar(0, 0, 0, 255), -1);
         for(int x = 0; x < m_SizeImage.x; ++x)
         {
-            float y = Bayesian.GetYGaussian(m_ProbabilityFunc.m_Mu, m_ProbabilityFunc.m_Sigma, x);
+            float y = Bayesian.GetYGaussian(g.m_Mu, g.m_Sigma, x);
             y = m_SizeImage.y * y / max_y;
             double[] pixel = new double[4]
             {
-                255, 255, 255, 255
+                color.r*255, color.g*255, color.b*255, 255
             };
             m_Mat.put((int)y, x, pixel);
         }
@@ -54,12 +55,33 @@ public class MainImage : MonoBehaviour {
             m_Sigma = m_SizeImage.x / 4
         };
         m_Texture = new Texture2D(m_Mat.width(), m_Mat.height(), TextureFormat.RGBA32, false);
+
+        m_ProbabilityAnother = new Bayesian.Gaussian()
+        {
+            m_Mu = m_SizeImage.x / 2 + Random.Range(-0.3f, 0.3f) * m_SizeImage.x,
+            m_Sigma = m_SizeImage.x * 0.15f + Random.Range(-0.05f, 0.05f) * m_SizeImage.x
+        };
     }
 	
-	void Update () {
-        DrawGaussian(m_ProbabilityFunc);
+    void _update_cursor()
+    {
+        DrawGaussian(m_ProbabilityFunc, Color.white);
         int x = (int)GetPosCursor().x;
         m_ProbabilityFunc = Bayesian.Adapt(m_ProbabilityFunc.m_Mu, m_ProbabilityFunc.m_Sigma, x, m_SpeedElastic, m_SpeedTransition);
+    }
+
+    void _update_another_gaussian()
+    {
+        DrawGaussian(m_ProbabilityFunc, Color.white);
+        int x = (int)Bayesian.GetRandomXGaussinan(m_ProbabilityAnother.m_Mu, m_ProbabilityAnother.m_Sigma);
+        m_ProbabilityFunc = Bayesian.Adapt(m_ProbabilityFunc.m_Mu, m_ProbabilityFunc.m_Sigma, x, m_SpeedElastic, m_SpeedTransition);
+        DrawGaussian(m_ProbabilityAnother, Color.red);
+    }
+
+	void Update () {
+        Imgproc.rectangle(m_Mat, new Point(0, 0), new Point(m_SizeImage.x, m_SizeImage.y), new Scalar(0, 0, 0, 255), -1);
+
+        _update_another_gaussian();
 
         Utils.matToTexture2D(m_Mat, m_Texture, false, 0, false, false, false);
         m_RawImage.texture = m_Texture;

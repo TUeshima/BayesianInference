@@ -162,6 +162,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_RawImage: {fileID: 754918184}
   m_SizeImage: {x: 300, y: 200}
+  m_SpeedElastic: 0.02
+  m_SpeedTransition: 0.01
 --- !u!114 &754918184
 MonoBehaviour:
   m_ObjectHideFlags: 0
