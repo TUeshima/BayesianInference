@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using OpenCVForUnity;
@@ -19,7 +20,9 @@ public class MainImage : MonoBehaviour {
     Bayesian.Gaussian m_ProbabilityFunc;
     Bayesian.Gaussian m_ProbabilityAnother;
 
-    unsafe void DrawGaussian(Bayesian.Gaussian g, Color color)
+    float[] m_Samples;
+
+    void DrawGaussian(Bayesian.Gaussian g, Color color)
     {
         float max_y = 0f;
         for (int x = 0; x < m_SizeImage.x; ++x)
@@ -40,10 +43,39 @@ public class MainImage : MonoBehaviour {
         }
     }
 
+    void DrawSamples(float[] samples, Color color)
+    {
+        for(int i = 0; i < samples.Length; ++i)
+        {
+            int y = (int)(samples[i] * m_Mat.height());
+            Imgproc.line(m_Mat, new Point(i, 0), new Point(i, y), new Scalar(color.r * 255, color.g * 255, color.b * 255, 255));
+        }
+    }
+
     public Vector2 GetPosCursor()
     {
         Vector2 pos_cursor = new Vector2(m_SizeImage.x * Input.mousePosition.x / Screen.width, m_SizeImage.y * Input.mousePosition.y / Screen.height);
         return pos_cursor;
+    }
+
+    void TakeSamples(Bayesian.Gaussian g)
+    {
+        const int num = 10000;
+        m_Samples = new float[m_Mat.width()];
+        for(int i = 0; i < num; ++i)
+        {
+            int x = (int)Bayesian.GetRandomXGaussinan(g.m_Mu, g.m_Sigma);
+            if (x < 0 || x >= m_Mat.width()) continue;
+            m_Samples[x] += 1f;
+
+        }
+
+        
+        float max = m_Samples.Max();
+        for(int i = 0; i < m_Samples.Length; ++i)
+        {
+            m_Samples[i] /= max;
+        }
     }
 
 	void Start () {
@@ -61,6 +93,7 @@ public class MainImage : MonoBehaviour {
             m_Mu = m_SizeImage.x / 2 + Random.Range(-0.3f, 0.3f) * m_SizeImage.x,
             m_Sigma = m_SizeImage.x * 0.15f + Random.Range(-0.05f, 0.05f) * m_SizeImage.x
         };
+        TakeSamples(m_ProbabilityAnother);
     }
 	
     void _update_cursor()
@@ -72,6 +105,8 @@ public class MainImage : MonoBehaviour {
 
     void _update_another_gaussian()
     {
+        DrawSamples(m_Samples, Color.gray);
+
         DrawGaussian(m_ProbabilityFunc, Color.white);
         int x = (int)Bayesian.GetRandomXGaussinan(m_ProbabilityAnother.m_Mu, m_ProbabilityAnother.m_Sigma);
         m_ProbabilityFunc = Bayesian.Adapt(m_ProbabilityFunc.m_Mu, m_ProbabilityFunc.m_Sigma, x, m_SpeedElastic, m_SpeedTransition);
@@ -81,6 +116,7 @@ public class MainImage : MonoBehaviour {
 	void Update () {
         Imgproc.rectangle(m_Mat, new Point(0, 0), new Point(m_SizeImage.x, m_SizeImage.y), new Scalar(0, 0, 0, 255), -1);
 
+        //_update_cursor();
         _update_another_gaussian();
 
         Utils.matToTexture2D(m_Mat, m_Texture, false, 0, false, false, false);
